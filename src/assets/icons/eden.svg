@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Nintendo Switch Red / Neon Blue Joy-Con Logo -->
+  <path d="M16 20C16 13.3726 21.3726 8 28 8H42V92H28C21.3726 92 16 86.6274 16 80V20Z" fill="#E60012" />
+  <circle cx="29" cy="30" r="5.5" fill="#FFFFFF" />
+  <path d="M29 60V74M22 67H36" stroke="#B8000E" stroke-width="3" stroke-linecap="round" />
+  
+  <path d="M84 20C84 13.3726 78.6274 8 72 8H58V92H72C78.6274 92 84 86.6274 84 80V20Z" fill="#00C3E3" />
+  <circle cx="71" cy="42" r="5.5" fill="#FFFFFF" />
+  <circle cx="71" cy="70" r="4.5" fill="#008EA6" />
+</svg>
