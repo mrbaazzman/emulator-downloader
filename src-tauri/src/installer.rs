@@ -1,5 +1,5 @@
 use crate::config::get_github_token;
-use crate::emulator::{create_http_client, fetch_latest_github_release, is_github_url};
+use crate::emulator::{create_http_client, fetch_github_release, fetch_latest_github_release, is_github_url};
 use crate::models::{
     extract_custom_source_artifact, parse_custom_source_version, resolve_release_version,
     CancelFlag, CustomSource, ProgressPayload,
@@ -153,6 +153,7 @@ pub async fn download_and_install(
     install_path: String,
     emulator_id: String,
     custom_source: Option<CustomSource>,
+    channel: Option<String>,
     portable: Option<bool>,
     portable_type: Option<String>,
     portable_target: Option<String>,
@@ -194,7 +195,7 @@ pub async fn download_and_install(
 
         (version, url, fname)
     } else {
-        let json = fetch_latest_github_release(&client, token.as_deref(), &owner, &repo).await?;
+        let json = fetch_github_release(&client, token.as_deref(), &owner, &repo, channel.as_deref()).await?;
         let raw_tag = json["tag_name"].as_str().unwrap_or("unknown");
         let name = json["name"].as_str();
         let body = json["body"].as_str();
@@ -253,6 +254,9 @@ pub async fn download_and_install(
         perms.set_mode(0o755);
         let _ = fs::set_permissions(&file_path, perms).map_err(|e| e.to_string())?;
         fs::write(dest_dir.join("version.txt"), &tag).map_err(|e| e.to_string())?;
+        if let Some(ch) = &channel {
+            let _ = fs::write(dest_dir.join("channel.txt"), ch);
+        }
 
         if emulator_id == "avalonia86" {
             let _ = setup_avalonia_86box(&client, token.as_deref(), &dest_dir, &emit_progress).await;
@@ -295,6 +299,9 @@ pub async fn download_and_install(
 
     emit_progress("Finishing setup...", 96.0);
     fs::write(dest_dir.join("version.txt"), &tag).map_err(|e| e.to_string())?;
+    if let Some(ch) = &channel {
+        let _ = fs::write(dest_dir.join("channel.txt"), ch);
+    }
 
     if portable.unwrap_or(true) {
         let _ = fs::write(dest_dir.join(".portable"), "true");

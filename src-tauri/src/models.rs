@@ -9,6 +9,24 @@ pub struct CustomSource {
     pub download_url_template: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct ChannelSource {
+    pub github_owner: Option<String>,
+    pub github_repo: Option<String>,
+    pub github_repo_windows: Option<String>,
+    pub github_repo_linux: Option<String>,
+    pub asset_pattern: Option<String>,
+    pub asset_pattern_windows: Option<String>,
+    pub asset_pattern_linux: Option<String>,
+    pub custom_source: Option<CustomSource>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct EmulatorChannels {
+    pub stable: Option<ChannelSource>,
+    pub nightly: Option<ChannelSource>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Emulator {
     pub id: String,
@@ -22,6 +40,8 @@ pub struct Emulator {
     pub asset_pattern_windows: Option<String>,
     pub asset_pattern_linux: Option<String>,
     pub custom_source: Option<CustomSource>,
+    pub channels: Option<EmulatorChannels>,
+    pub default_channel: Option<String>,
     pub portable_type: Option<String>,
     pub portable_target: Option<String>,
 }
@@ -30,6 +50,7 @@ pub struct Emulator {
 pub struct InstallStatus {
     pub installed: bool,
     pub version: Option<String>,
+    pub channel: Option<String>,
     pub is_portable: bool,
 }
 
@@ -118,27 +139,39 @@ pub fn resolve_release_version(
         tag.to_string()
     };
 
+    // shadPS4 pre-releases: e.g. Pre-release-shadPS4-2026-08-29-297551e... or shadPS4QtLauncher-2026-08-26-...
+    if clean_tag.starts_with("shadPS4QtLauncher-") || clean_tag.starts_with("Pre-release-shadPS4-") {
+        if let Some(n) = name {
+            let trimmed = n
+                .trim()
+                .trim_start_matches("shadPS4QtLauncher-")
+                .trim_start_matches("Pre-release-shadPS4-")
+                .trim();
+            if !trimmed.is_empty() && !trimmed.eq_ignore_ascii_case("pre-release") {
+                return trimmed.to_string();
+            }
+        }
+        if let Ok(re) = regex::Regex::new(r"(\d{4}-\d{2}-\d{2}-[a-f0-9]{7,10})") {
+            if let Some(caps) = re.captures(&clean_tag) {
+                if let Some(m) = caps.get(1) {
+                    return m.as_str().to_string();
+                }
+            }
+        }
+    }
+
+    // Version with commit hash in tag, e.g. v1788034417.3df41c1e7a -> 3df41c1e7a
     if clean_tag.starts_with('v') && clean_tag.contains('.') {
         if let Some(pos) = clean_tag.find('.') {
             let commit_part = &clean_tag[pos + 1..];
             if commit_part.len() >= 7 && commit_part.chars().all(|c| c.is_ascii_hexdigit()) {
-                return format!("nightly-{}", commit_part);
+                let short_hash = if commit_part.len() > 8 { &commit_part[..8] } else { commit_part };
+                return short_hash.to_string();
             }
         }
     }
 
-    if clean_tag.starts_with("shadPS4QtLauncher-") {
-        if let Some(n) = name {
-            let trimmed = n.trim().trim_start_matches("shadPS4QtLauncher-");
-            if !trimmed.is_empty() {
-                return trimmed.to_string();
-            }
-        }
-        if clean_tag.len() > 28 {
-            return clean_tag[18..28].to_string();
-        }
-    }
-
+    // RPCS3 build tags (build-...) or 32+ hex char commit tags
     if clean_tag.starts_with("build-") || (clean_tag.len() >= 32 && clean_tag.chars().all(|c| c.is_ascii_hexdigit())) {
         if let Some(n) = name {
             let trimmed = n.trim();
@@ -157,9 +190,66 @@ pub fn resolve_release_version(
         }
     }
 
-    if clean_tag == "latest" || clean_tag == "rolling" || clean_tag == "master" || clean_tag.is_empty() {
+    // Asset name inspection for generic/non-descriptive tags (like "pre-release", "latest", "preview", "rolling")
+    let is_generic_tag = clean_tag == "latest"
+        || clean_tag == "preview"
+        || clean_tag == "rolling"
+        || clean_tag == "master"
+        || clean_tag == "pre-release"
+        || clean_tag == "nightly"
+        || clean_tag == "dev"
+        || clean_tag.is_empty();
+
+    if is_generic_tag {
+        // 1. Try asset name for version (e.g. xemu-0.8.136-30-gd73326b621-... or rpcs3-v0.0.42-19883-...)
+        if let Some(an) = asset_name {
+            if let Ok(re) = regex::Regex::new(r"xemu-(\d+\.\d+\.\d+(?:-\d+(?:-g[a-f0-9]+)?)?)") {
+                if let Some(caps) = re.captures(an) {
+                    if let Some(ver) = caps.get(1) {
+                        return ver.as_str().to_string();
+                    }
+                }
+            }
+            if let Ok(re) = regex::Regex::new(r"(?:rpcs3-)?v?(\d+\.\d+\.\d+-\d+)") {
+                if let Some(caps) = re.captures(an) {
+                    if let Some(ver) = caps.get(1) {
+                        return ver.as_str().to_string();
+                    }
+                }
+            }
+            if let Ok(re) = regex::Regex::new(r"v?(\d+\.\d+\.\d+(?:-\d+)?)") {
+                if let Some(caps) = re.captures(an) {
+                    if let Some(ver) = caps.get(1) {
+                        return ver.as_str().to_string();
+                    }
+                }
+            }
+        }
+
+        // 2. Try release name if it has a real version/build number (not "Latest...")
+        if let Some(n) = name {
+            let trimmed = n.trim();
+            if !trimmed.starts_with("Latest ")
+                && !trimmed.eq_ignore_ascii_case("pre-release")
+                && !trimmed.eq_ignore_ascii_case("preview")
+            {
+                if regex::Regex::new(r"^\d+\.\d+").map(|r| r.is_match(trimmed)).unwrap_or(false) {
+                    return trimmed.to_string();
+                }
+            }
+        }
+
+        // 3. Try commit hashes in body (e.g. DuckStation release body)
         if let Some(body_text) = body {
-            if let Ok(re) = regex::Regex::new(r"(?m)(?:-\s*|commit\s*[:=]\s*)([a-f0-9]{7,10})\b") {
+            if let Ok(re) = regex::Regex::new(r"(?:commit/|commit\s*[:=]\s*|\bcommit\s+)([a-f0-9]{7,40})\b") {
+                if let Some(caps) = re.captures(body_text) {
+                    if let Some(commit) = caps.get(1) {
+                        let c = commit.as_str();
+                        return if c.len() > 8 { c[..8].to_string() } else { c.to_string() };
+                    }
+                }
+            }
+            if let Ok(re) = regex::Regex::new(r"(?m)^-\s*([a-f0-9]{7,10})\b") {
                 if let Some(caps) = re.captures(body_text) {
                     if let Some(commit) = caps.get(1) {
                         return commit.as_str().to_string();
@@ -167,9 +257,11 @@ pub fn resolve_release_version(
                 }
             }
         }
+
+        // 4. Date fallback (clean YYYY-MM-DD format)
         if let Some(date_str) = published_at {
             if date_str.len() >= 10 {
-                return format!("preview-{}", &date_str[..10]);
+                return date_str[..10].to_string();
             }
         }
     }
@@ -190,7 +282,7 @@ mod tests {
     fn test_resolve_eden_nightly_tag() {
         assert_eq!(
             resolve_release_version("v1788034417.3df41c1e7a", Some("Eden Nightly - Aug 29 2026"), None, None, None),
-            "nightly-3df41c1e7a"
+            "3df41c1e"
         );
     }
 
@@ -231,16 +323,11 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_rpcs3_asset_fallback() {
+    fn test_resolve_duckstation_preview_commit_url() {
+        let body = "## Commits\r\n- Fix prerotation ([Stenzek](https://github.com/stenzek/duckstation/commit/9287950af26337a72b5636add010354a089a0fc1))";
         assert_eq!(
-            resolve_release_version(
-                "build-c85105a7fda77f6e76e10b82fc27cf3f7ccaa277",
-                None,
-                None,
-                None,
-                Some("rpcs3-v0.0.42-19878-c85105a7_win64_msvc.7z")
-            ),
-            "0.0.42-19878"
+            resolve_release_version("preview", Some("Latest Preview Build"), Some(body), Some("2026-08-29T09:51:43Z"), None),
+            "9287950a"
         );
     }
 
@@ -248,16 +335,22 @@ mod tests {
     fn test_resolve_duckstation_rolling_commit() {
         let body = "## Commits\r\n- 6336c532a Cheats: Fix importing semi-broken files\r\n- c475fd699 Qt: Fix";
         assert_eq!(
-            resolve_release_version("latest", None, Some(body), Some("2026-08-29T05:52:30Z"), None),
+            resolve_release_version("latest", Some("Latest Rolling Release"), Some(body), Some("2026-08-29T05:52:30Z"), None),
             "6336c532a"
         );
     }
 
     #[test]
-    fn test_resolve_latest_fallback_date() {
+    fn test_resolve_xemu_pre_release_asset() {
         assert_eq!(
-            resolve_release_version("latest", None, None, Some("2026-08-29T05:52:30Z"), None),
-            "preview-2026-08-29"
+            resolve_release_version(
+                "pre-release",
+                Some("Latest Development Build"),
+                None,
+                Some("2026-08-27T05:47:52Z"),
+                Some("xemu-0.8.136-30-gd73326b621-aarch64.AppImage")
+            ),
+            "0.8.136-30-gd73326b621"
         );
     }
 
@@ -269,7 +362,18 @@ mod tests {
             download_url_template: "".to_string(),
         };
         let body = r#"{"tag_name":"v1788034417.3df41c1e7a","name":"Eden Nightly - Aug 29 2026"}"#;
-        assert_eq!(parse_custom_source_version(&source, body).unwrap(), "nightly-3df41c1e7a");
+        assert_eq!(parse_custom_source_version(&source, body).unwrap(), "3df41c1e");
+    }
+
+    #[test]
+    fn test_parse_custom_source_version_eden_stable() {
+        let source = CustomSource {
+            version_url: "https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases/latest".to_string(),
+            version_regex: "".to_string(),
+            download_url_template: "".to_string(),
+        };
+        let body = r#"{"tag_name":"v0.2.1","name":"Eden v0.2.1"}"#;
+        assert_eq!(parse_custom_source_version(&source, body).unwrap(), "v0.2.1");
     }
 
     #[test]

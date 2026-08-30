@@ -113,21 +113,24 @@ export default function UpdatesPage({ updates, checking, onCheck, onUpdate, onUp
                 className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 rounded-2xl p-5 transition-all shadow-xs"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
-                  <div className="flex items-center gap-3.5">
-                    <EmulatorIcon id={u.emulator.id} className="w-11 h-11" />
-                    <div>
-                      <div className="flex items-center gap-2.5">
-                        <h3 className="text-base font-bold text-neutral-900 dark:text-white">{u.emulator.name}</h3>
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400">{u.emulator.description}</span>
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                    <EmulatorIcon id={u.emulator.id} className="w-11 h-11 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">{u.emulator.name}</h3>
+                        <span className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 px-2 py-0.5 rounded-md font-mono capitalize">
+                          {u.channel}
+                        </span>
+                        <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{u.emulator.description}</span>
                       </div>
 
                       {/* Version Diff Pill */}
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 px-2.5 py-1 rounded-lg font-mono font-medium">
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <span className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 px-2.5 py-1 rounded-lg font-mono font-medium max-w-[160px] truncate" title={u.installedVersion}>
                           {u.installedVersion}
                         </span>
-                        <ArrowRight className="w-3.5 h-3.5 text-neutral-400" />
-                        <span className="text-xs bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/40 px-2.5 py-1 rounded-lg font-mono font-bold">
+                        <ArrowRight className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                        <span className="text-xs bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/40 px-2.5 py-1 rounded-lg font-mono font-bold max-w-[160px] truncate" title={u.latestVersion}>
                           {u.latestVersion}
                         </span>
                       </div>

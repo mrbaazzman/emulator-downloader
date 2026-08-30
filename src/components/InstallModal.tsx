@@ -2,8 +2,15 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Emulator, ProgressPayload } from "../types";
-import { getAssetPattern, getGithubRepo } from "../utils";
+import { Emulator, ProgressPayload, ReleaseChannel } from "../types";
+import {
+  getDefaultChannel,
+  getAvailableChannels,
+  getEffectiveOwner,
+  getEffectiveRepo,
+  getEffectiveAssetPattern,
+  getEffectiveCustomSource,
+} from "../utils";
 import EmulatorIcon from "./EmulatorIcon";
 import {
   Download,
@@ -27,12 +34,15 @@ export default function InstallModal({ emulator, defaultPath, onClose, onSuccess
   const sep = defaultPath.includes("\\") ? "\\" : "/";
   const [path, setPath] = useState(`${defaultPath}${sep}${emulator.id}`);
   const [portable, setPortable] = useState(true);
+  const [channel, setChannel] = useState<ReleaseChannel>(() => getDefaultChannel(emulator));
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [fetchingVersion, setFetchingVersion] = useState(true);
   const [versionError, setVersionError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "installing" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
   const [progress, setProgress] = useState({ step: "", percent: 0 });
+
+  const availableChannels = getAvailableChannels(emulator);
 
   useEffect(() => {
     let active = true;
@@ -41,9 +51,10 @@ export default function InstallModal({ emulator, defaultPath, onClose, onSuccess
     setVersionError(null);
 
     invoke<string>("get_latest_version", {
-      owner: emulator.github_owner,
-      repo: getGithubRepo(emulator),
-      customSource: emulator.custom_source ?? null,
+      owner: getEffectiveOwner(emulator, channel),
+      repo: getEffectiveRepo(emulator, channel),
+      customSource: getEffectiveCustomSource(emulator, channel),
+      channel,
     })
       .then((ver) => {
         if (active) {
@@ -61,7 +72,7 @@ export default function InstallModal({ emulator, defaultPath, onClose, onSuccess
     return () => {
       active = false;
     };
-  }, [emulator]);
+  }, [emulator, channel]);
 
   useEffect(() => {
     const unlisten = listen<ProgressPayload>("install-progress", (event) => {
@@ -102,12 +113,13 @@ export default function InstallModal({ emulator, defaultPath, onClose, onSuccess
     setProgress({ step: "Connecting to release server...", percent: 5 });
     try {
       const version = await invoke<string>("download_and_install", {
-        owner: emulator.github_owner,
-        repo: getGithubRepo(emulator),
-        assetPattern: getAssetPattern(emulator),
+        owner: getEffectiveOwner(emulator, channel),
+        repo: getEffectiveRepo(emulator, channel),
+        assetPattern: getEffectiveAssetPattern(emulator, channel),
         installPath: path,
         emulatorId: emulator.id,
-        customSource: emulator.custom_source ?? null,
+        customSource: getEffectiveCustomSource(emulator, channel),
+        channel,
         portable,
         portableType: emulator.portable_type ?? null,
         portableTarget: emulator.portable_target ?? null,
@@ -178,6 +190,42 @@ export default function InstallModal({ emulator, defaultPath, onClose, onSuccess
               <div className="flex-1">
                 <p className="font-semibold text-sm">Version check notice</p>
                 <p className="text-xs text-amber-700 dark:text-amber-400/90 mt-0.5">{versionError}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Release Channel Selector */}
+          {availableChannels.length > 1 && (
+            <div>
+              <label className="text-sm font-semibold text-neutral-800 dark:text-neutral-200 block mb-1.5 flex items-center justify-between">
+                <span>Release Channel</span>
+                <span className="text-xs text-neutral-500 font-normal">Choose build branch</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2 bg-neutral-100 dark:bg-neutral-950 p-1 rounded-xl border border-neutral-200 dark:border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setChannel("stable")}
+                  disabled={status === "installing" || status === "done"}
+                  className={`py-2 px-3 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    channel === "stable"
+                      ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs"
+                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
+                  }`}
+                >
+                  <span>Stable</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChannel("nightly")}
+                  disabled={status === "installing" || status === "done"}
+                  className={`py-2 px-3 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    channel === "nightly"
+                      ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs"
+                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
+                  }`}
+                >
+                  <span>Nightly / Dev</span>
+                </button>
               </div>
             </div>
           )}

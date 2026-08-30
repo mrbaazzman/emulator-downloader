@@ -14,7 +14,7 @@ A cross-platform desktop application built with **Tauri v2**, **Rust**, and **Re
 | **RPCS3** | PS3 | GitHub Releases (`rpcs3-binaries-win` / `-linux`) | Resolves version from release name/asset tag; portable `portable.txt` |
 | **Dolphin** | GameCube / Wii | Custom API (`dolphin-emu.org/update/latest/dev/`) | Dev channel live API with dynamic artifact resolution & root flattening |
 | **PPSSPP** | PSP | GitHub Releases | Portable `installed.txt` marker |
-| **shadPS4** | PS4 | GitHub Releases (`shadps4-emu/shadps4-qtlauncher`) | Pre-release fallback resolution; portable `user` folder |
+| **shadPS4** | PS4 | GitHub Releases (`shadps4-emu/shadps4-qtlauncher`) | Full GUI QtLauncher builds; portable `user` folder |
 | **Xemu** | Original Xbox | GitHub Releases | Portable `xemu.ini` setup |
 | **Eden** | Nintendo Switch | Forgejo API (`git.eden-emu.dev/api/v1/...`) | PGO-optimized build selection, custom release parser, portable `user` dir |
 

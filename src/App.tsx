@@ -1,8 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Page, Emulator, UpdateInfo, InstallStatus, ProgressPayload } from "./types";
-import { getAssetPattern, getGithubRepo } from "./utils";
+import { Page, Emulator, UpdateInfo, InstallStatus, ProgressPayload, ReleaseChannel } from "./types";
+import {
+  getEffectiveAssetPattern,
+  getEffectiveCustomSource,
+  getEffectiveOwner,
+  getEffectiveRepo,
+  getDefaultChannel,
+} from "./utils";
 import Sidebar from "./components/Sidebar";
 import EmulatorsPage from "./pages/EmulatorsPage";
 import UpdatesPage from "./pages/UpdatesPage";
@@ -71,15 +77,22 @@ export default function App() {
           const status = await invoke<InstallStatus>("check_install_status", { emulatorId: emu.id });
           if (!status.installed || !status.version) return;
 
+          const channel: ReleaseChannel =
+            status.channel === "nightly" || status.channel === "stable"
+              ? status.channel
+              : getDefaultChannel(emu);
+
           const latest = await invoke<string>("get_latest_version", {
-            owner: emu.github_owner,
-            repo: getGithubRepo(emu),
-            customSource: emu.custom_source ?? null,
+            owner: getEffectiveOwner(emu, channel),
+            repo: getEffectiveRepo(emu, channel),
+            customSource: getEffectiveCustomSource(emu, channel),
+            channel,
           });
 
           if (latest && latest !== "unknown" && latest !== status.version) {
             results.push({
               emulator: emu,
+              channel,
               installedVersion: status.version,
               latestVersion: latest,
               updating: false,
@@ -119,12 +132,13 @@ export default function App() {
 
     try {
       await invoke("download_and_install", {
-        owner: u.emulator.github_owner,
-        repo: getGithubRepo(u.emulator),
-        assetPattern: getAssetPattern(u.emulator),
+        owner: getEffectiveOwner(u.emulator, u.channel),
+        repo: getEffectiveRepo(u.emulator, u.channel),
+        assetPattern: getEffectiveAssetPattern(u.emulator, u.channel),
         installPath,
         emulatorId: u.emulator.id,
-        customSource: u.emulator.custom_source ?? null,
+        customSource: getEffectiveCustomSource(u.emulator, u.channel),
+        channel: u.channel,
         portable: isPortable,
         portableType: u.emulator.portable_type ?? null,
         portableTarget: u.emulator.portable_target ?? null,

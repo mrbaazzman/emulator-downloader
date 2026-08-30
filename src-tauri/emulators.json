@@ -11,6 +11,8 @@
     "asset_pattern_windows": "Windows-x64",
     "asset_pattern_linux": "Linux-x64",
     "custom_source": null,
+    "default_channel": "stable",
+    "channels": null,
     "portable_type": "folder",
     "portable_target": "configs"
   },
@@ -26,6 +28,11 @@
     "asset_pattern_windows": "windows-x64-Qt.7z",
     "asset_pattern_linux": "linux-appimage-x64-Qt.AppImage",
     "custom_source": null,
+    "default_channel": "stable",
+    "channels": {
+      "stable": {},
+      "nightly": {}
+    },
     "portable_type": "file",
     "portable_target": "portable.ini"
   },
@@ -41,6 +48,11 @@
     "asset_pattern_windows": "windows-x64-release.zip",
     "asset_pattern_linux": "linux-x86_64.AppImage",
     "custom_source": null,
+    "default_channel": "stable",
+    "channels": {
+      "stable": {},
+      "nightly": {}
+    },
     "portable_type": "file",
     "portable_target": "portable.txt"
   },
@@ -52,10 +64,29 @@
     "github_repo": "rpcs3-binaries-win",
     "github_repo_windows": "rpcs3-binaries-win",
     "github_repo_linux": "rpcs3-binaries-linux",
-    "asset_pattern": "rpcs3-",
+    "asset_pattern": "win64_msvc.7z",
     "asset_pattern_windows": "win64_msvc.7z",
     "asset_pattern_linux": "linux64.AppImage",
     "custom_source": null,
+    "default_channel": "nightly",
+    "channels": {
+      "nightly": {
+        "github_owner": "RPCS3",
+        "github_repo": "rpcs3-binaries-win",
+        "github_repo_windows": "rpcs3-binaries-win",
+        "github_repo_linux": "rpcs3-binaries-linux",
+        "asset_pattern": "win64_msvc.7z",
+        "asset_pattern_windows": "win64_msvc.7z",
+        "asset_pattern_linux": "linux64.AppImage"
+      },
+      "stable": {
+        "github_owner": "RPCS3",
+        "github_repo": "rpcs3",
+        "asset_pattern": "win64",
+        "asset_pattern_windows": "win64",
+        "asset_pattern_linux": "AppImage"
+      }
+    },
     "portable_type": "inherent",
     "portable_target": null
   },
@@ -75,6 +106,23 @@
       "version_regex": "\"shortrev\":\\s*\"([^\"]+)\"",
       "download_url_template": ""
     },
+    "default_channel": "nightly",
+    "channels": {
+      "nightly": {
+        "custom_source": {
+          "version_url": "https://dolphin-emu.org/update/latest/dev/",
+          "version_regex": "\"shortrev\":\\s*\"([^\"]+)\"",
+          "download_url_template": ""
+        }
+      },
+      "stable": {
+        "custom_source": {
+          "version_url": "https://dolphin-emu.org/update/latest/beta/",
+          "version_regex": "\"shortrev\":\\s*\"([^\"]+)\"",
+          "download_url_template": ""
+        }
+      }
+    },
     "portable_type": "file",
     "portable_target": "portable.txt"
   },
@@ -90,6 +138,8 @@
     "asset_pattern_windows": "Windows-x64.zip",
     "asset_pattern_linux": "ppsspp_linux_amd64.AppImage",
     "custom_source": null,
+    "default_channel": "stable",
+    "channels": null,
     "portable_type": "folder",
     "portable_target": "memstick"
   },
@@ -105,6 +155,8 @@
     "asset_pattern_windows": "win64-qt",
     "asset_pattern_linux": "linux-qt",
     "custom_source": null,
+    "default_channel": "nightly",
+    "channels": null,
     "portable_type": "folder",
     "portable_target": "user"
   },
@@ -120,13 +172,18 @@
     "asset_pattern_windows": "windows-x86_64.zip",
     "asset_pattern_linux": "xemu-linux-x86_64.AppImage",
     "custom_source": null,
+    "default_channel": "stable",
+    "channels": {
+      "stable": {},
+      "nightly": {}
+    },
     "portable_type": "file",
     "portable_target": "xemu.toml"
   },
   {
     "id": "eden",
     "name": "Eden",
-    "description": "Nintendo Switch (Nightly)",
+    "description": "Nintendo Switch",
     "github_owner": "",
     "github_repo": "",
     "github_repo_windows": null,
@@ -135,9 +192,26 @@
     "asset_pattern_windows": "amd64-clang-pgo.zip",
     "asset_pattern_linux": "amd64-clang-pgo.AppImage",
     "custom_source": {
-      "version_url": "https://git.eden-emu.dev/api/v1/repos/eden-ci/nightly/releases/latest",
+      "version_url": "https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases/latest",
       "version_regex": "",
       "download_url_template": ""
+    },
+    "default_channel": "stable",
+    "channels": {
+      "stable": {
+        "custom_source": {
+          "version_url": "https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases/latest",
+          "version_regex": "",
+          "download_url_template": ""
+        }
+      },
+      "nightly": {
+        "custom_source": {
+          "version_url": "https://git.eden-emu.dev/api/v1/repos/eden-ci/nightly/releases/latest",
+          "version_regex": "",
+          "download_url_template": ""
+        }
+      }
     },
     "portable_type": "folder",
     "portable_target": "portable"

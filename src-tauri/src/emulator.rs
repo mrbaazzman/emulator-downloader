@@ -17,7 +17,7 @@ pub fn is_github_url(url: &str) -> bool {
     url.starts_with("https://api.github.com/") || url.starts_with("https://github.com/")
 }
 
-pub async fn fetch_latest_github_release(
+pub async fn fetch_stable_github_release(
     client: &reqwest::Client,
     token: Option<&str>,
     owner: &str,
@@ -33,18 +33,86 @@ pub async fn fetch_latest_github_release(
         return resp.json().await.map_err(|e| e.to_string());
     }
 
-    let releases_url = format!("https://api.github.com/repos/{}/{}/releases?per_page=1", owner, repo);
+    let releases_url = format!("https://api.github.com/repos/{}/{}/releases?per_page=10", owner, repo);
     let mut req = client.get(&releases_url).header("User-Agent", "emu-manager");
     if let Some(t) = token {
         req = req.header("Authorization", format!("Bearer {}", t));
     }
     let resp = req.send().await.map_err(|e| format!("Network error fetching releases for {}/{}: {}", owner, repo, e))?;
     let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
-    if let Some(first) = json.as_array().and_then(|arr| arr.first()) {
-        return Ok(first.clone());
+    if let Some(arr) = json.as_array() {
+        if let Some(stable_rel) = arr.iter().find(|r| !r["prerelease"].as_bool().unwrap_or(false) && !r["draft"].as_bool().unwrap_or(false)) {
+            return Ok(stable_rel.clone());
+        }
+        if let Some(first) = arr.first() {
+            return Ok(first.clone());
+        }
     }
 
-    Err(format!("No releases found for {}/{}", owner, repo))
+    Err(format!("No stable releases found for {}/{}", owner, repo))
+}
+
+pub async fn fetch_github_release(
+    client: &reqwest::Client,
+    token: Option<&str>,
+    owner: &str,
+    repo: &str,
+    channel: Option<&str>,
+) -> Result<serde_json::Value, String> {
+    let chan = channel.unwrap_or("stable");
+
+    let stable_rel = fetch_stable_github_release(client, token, owner, repo).await;
+
+    if chan == "stable" {
+        return stable_rel;
+    }
+
+    // Dev / Nightly channel
+    let releases_url = format!("https://api.github.com/repos/{}/{}/releases?per_page=10", owner, repo);
+    let mut req = client.get(&releases_url).header("User-Agent", "emu-manager");
+    if let Some(t) = token {
+        req = req.header("Authorization", format!("Bearer {}", t));
+    }
+    let resp = req.send().await.map_err(|e| format!("Network error fetching releases for {}/{}: {}", owner, repo, e))?;
+    let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+
+    let nightly_rel = if let Some(arr) = json.as_array() {
+        arr.iter().find(|r| {
+            if r["draft"].as_bool().unwrap_or(false) { return false; }
+            let is_pre = r["prerelease"].as_bool().unwrap_or(false);
+            let tag = r["tag_name"].as_str().unwrap_or("").to_lowercase();
+            let name = r["name"].as_str().unwrap_or("").to_lowercase();
+            is_pre || tag.contains("nightly") || tag.contains("preview") || tag.contains("rolling") || tag.contains("dev") || tag.starts_with("build-") || name.contains("nightly") || name.contains("preview")
+        }).or_else(|| arr.first()).cloned()
+    } else {
+        None
+    };
+
+    if let (Some(nightly), Ok(stable)) = (&nightly_rel, &stable_rel) {
+        let nightly_date = nightly.get("published_at").and_then(|v| v.as_str()).unwrap_or("");
+        let stable_date = stable.get("published_at").and_then(|v| v.as_str()).unwrap_or("");
+
+        // Don't show dev builds unless they are strictly newer than the stable ones
+        if !nightly_date.is_empty() && !stable_date.is_empty() && nightly_date <= stable_date {
+            return Ok(stable.clone());
+        }
+        return Ok(nightly.clone());
+    }
+
+    if let Some(nightly) = nightly_rel {
+        return Ok(nightly);
+    }
+
+    stable_rel
+}
+
+pub async fn fetch_latest_github_release(
+    client: &reqwest::Client,
+    token: Option<&str>,
+    owner: &str,
+    repo: &str,
+) -> Result<serde_json::Value, String> {
+    fetch_github_release(client, token, owner, repo, None).await
 }
 
 #[tauri::command]
@@ -69,6 +137,7 @@ pub async fn get_latest_version(
     owner: String,
     repo: String,
     custom_source: Option<CustomSource>,
+    channel: Option<String>,
 ) -> Result<String, String> {
     let client = create_http_client();
     let token = get_github_token(&app);
@@ -86,7 +155,7 @@ pub async fn get_latest_version(
         return parse_custom_source_version(&source, &body);
     }
 
-    let json = fetch_latest_github_release(&client, token.as_deref(), &owner, &repo).await?;
+    let json = fetch_github_release(&client, token.as_deref(), &owner, &repo, channel.as_deref()).await?;
     let raw_tag = json["tag_name"].as_str().unwrap_or("unknown");
     let name = json["name"].as_str();
     let body = json["body"].as_str();
@@ -100,8 +169,10 @@ pub fn check_install_status(app: tauri::AppHandle, emulator_id: String) -> Insta
     let resolve_path = get_emulator_path(app, emulator_id);
     let dest_dir = PathBuf::from(&resolve_path);
     let version_file = dest_dir.join("version.txt");
+    let channel_file = dest_dir.join("channel.txt");
     if version_file.exists() {
         let version = fs::read_to_string(version_file).ok().map(|v| v.trim().to_string());
+        let channel = fs::read_to_string(channel_file).ok().map(|v| v.trim().to_string());
         let is_portable = dest_dir.join(".portable").exists()
             || dest_dir.join("portable.txt").exists()
             || dest_dir.join("portable.ini").exists()
@@ -109,12 +180,14 @@ pub fn check_install_status(app: tauri::AppHandle, emulator_id: String) -> Insta
         InstallStatus {
             installed: true,
             version,
+            channel,
             is_portable,
         }
     } else {
         InstallStatus {
             installed: false,
             version: None,
+            channel: None,
             is_portable: false,
         }
     }

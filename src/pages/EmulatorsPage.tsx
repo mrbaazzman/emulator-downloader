@@ -221,34 +221,51 @@ export default function EmulatorsPage({ emulators, defaultPath }: EmulatorsPageP
                 >
                   <div>
                     {/* Card Header: Logo, Name, Console Subtitle, Status Badges */}
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-3">
-                        <EmulatorIcon id={emu.id} className="w-11 h-11" />
-                        <div>
-                          <h3 className="text-base font-bold text-neutral-900 dark:text-white tracking-tight">
-                            {emu.name}
-                          </h3>
-                          <span className="inline-block text-xs font-semibold text-neutral-500 dark:text-neutral-400 mt-0.5">
-                            {emu.description}
-                          </span>
-                        </div>
-                      </div>
+                    <div className="flex items-start gap-3.5 mb-3">
+                      <EmulatorIcon id={emu.id} className="w-11 h-11 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-base font-bold text-neutral-900 dark:text-white tracking-tight truncate">
+                              {emu.name}
+                            </h3>
+                            <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
+                              {emu.description}
+                            </p>
+                          </div>
 
-                      <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                        {isInstalled && status.is_portable && (
-                          <span className="text-xs bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/50 px-2 py-0.5 rounded-lg font-mono font-medium">
-                            Portable
-                          </span>
-                        )}
-                        {isInstalled ? (
-                          <span className="text-xs bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 px-2.5 py-0.5 rounded-lg font-mono font-semibold flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                            {status.version ?? "Installed"}
-                          </span>
-                        ) : (
-                          <span className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 px-2.5 py-0.5 rounded-lg font-medium">
-                            Ready
-                          </span>
+                          {/* Primary Status Badge */}
+                          <div className="shrink-0">
+                            {isInstalled ? (
+                              <span
+                                className="text-xs bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 px-2.5 py-0.5 rounded-lg font-mono font-semibold flex items-center gap-1.5 max-w-[150px]"
+                                title={status.version ?? "Installed"}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                <span className="truncate">{status.version ?? "Installed"}</span>
+                              </span>
+                            ) : (
+                              <span className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 px-2.5 py-0.5 rounded-lg font-medium">
+                                Ready
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Meta Tags Row: Channel + Portable */}
+                        {isInstalled && (status.channel || status.is_portable) && (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                            {status.channel && (
+                              <span className="text-[11px] bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 px-2 py-0.5 rounded-md font-mono font-medium capitalize">
+                                {status.channel}
+                              </span>
+                            )}
+                            {status.is_portable && (
+                              <span className="text-[11px] bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/50 px-2 py-0.5 rounded-md font-mono font-medium">
+                                Portable
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
