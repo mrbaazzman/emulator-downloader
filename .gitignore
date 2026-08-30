@@ -24,3 +24,7 @@ src-tauri/gen/schemas/
 *.njsproj
 *.sln
 *.sw?
+
+# Agent & prompt instructions
+AGENTS.md
+
